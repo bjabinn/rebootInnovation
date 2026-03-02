@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 from src.data_loader import DataLoader
 from src.calculator import Calculator
 from src.visualizer import Visualizer
+from src.pdf_generator import PDFGenerator
 
 # Configuración de la página
 st.set_page_config(
@@ -36,21 +38,38 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Título principal
-st.title("🚀 Evaluación Reboot - Innovación")
+st.title("Evaluación Reboot - Innovación")
 
-# Subtítulo con campo de texto para el nombre del equipo
-col1, col2 = st.columns([1, 2])
+# CSS para el campo de texto con fondo gris
+st.markdown("""
+    <style>
+    /* Estilo para el input de nombre de equipo */
+    div[data-testid="stTextInput"] input {
+        background-color: #f0f2f6 !important;
+        border: 1px solid #d0d0d0 !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        background-color: #e8eaf0 !important;
+        border: 1px solid #4f8bf9 !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Subtítulo con campo de texto en la misma línea (más compacto)
+col1, col2, col3 = st.columns([0.5, 2, 1.5])
 with col1:
-    st.markdown("### Evaluación de prácticas por dimensiones del equipo:")
+    st.markdown("### Equipo:")
 with col2:
     team_name = st.text_input(
         "Nombre del equipo",
         placeholder="Introduce el nombre del equipo...",
-        label_visibility="collapsed",
-        key="team_name_input"
+        key="team_name_input",
+        label_visibility="collapsed"
     )
     if team_name:
         st.session_state['team_name'] = team_name
+with col3:
+    pass  # Columna vacía para equilibrar
 
 st.markdown("---")
 
@@ -66,19 +85,31 @@ try:
     
     # Barra lateral
     with st.sidebar:
+        # Espacio para empujar contenido hacia abajo
+        st.markdown("<br>" * 20, unsafe_allow_html=True)
+        
+        # Sección de carga de datos al final
+        st.markdown("---")
         st.subheader("📁 Cargar datos personalizados")
         uploaded_file = st.file_uploader("Subir CSV", type=['csv'])
         if uploaded_file is not None:
             df_practices = pd.read_csv(uploaded_file)
             st.success("Archivo cargado correctamente")
     
-    # Tabs principales
+    # Tabs principales (con navegación automática)
+    # Determinar qué pestaña abrir por defecto
+    if 'show_results' in st.session_state and st.session_state['show_results']:
+        default_tab = 1  # Abrir pestaña de Resultados
+        st.session_state['show_results'] = False  # Reset para próxima vez
+    else:
+        default_tab = 0  # Abrir pestaña de Evaluación por defecto
+    
     tab1, tab2, tab3 = st.tabs(["📝 Evaluación", "📊 Resultados", "📋 Datos"])
     
     # TAB 1: EVALUACIÓN
     with tab1:
-        st.header("Evaluación de Prácticas")
-        st.markdown("Selecciona el nivel de cumplimiento (0-100%) para cada práctica:")
+        st.header("Evaluación de Prácticas por Dimensión")
+        # st.markdown("Selecciona el nivel de cumplimiento (0-100%) para cada práctica:")
         
         # Crear formulario de evaluación
         evaluation_values = {}
@@ -124,7 +155,9 @@ try:
         if st.button("🔍 Calcular Resultados", type="primary", use_container_width=True):
             # Guardar valores en session_state
             st.session_state['evaluation_values'] = evaluation_values
-            st.success("✅ Evaluación guardada. Ve a la pestaña 'Resultados' para ver los gráficos.")
+            st.session_state['show_results'] = True
+            st.success("✅ Evaluación guardada. Redirigiendo a resultados...")
+            st.rerun()
     
     # TAB 2: RESULTADOS
     with tab2:
@@ -248,14 +281,19 @@ try:
                 )
             
             with col_btn2:
-                # Botón para imprimir en PDF
-                if st.button("🖨️ Imprimir / Guardar PDF", use_container_width=True):
-                    st.markdown("""
-                        <script>
-                        window.print();
-                        </script>
-                    """, unsafe_allow_html=True)
-                    st.info("💡 Usa Ctrl+P o selecciona 'Guardar como PDF' en el diálogo de impresión")
+                # Generar y descargar PDF
+                try:
+                    pdf_gen = PDFGenerator()
+                    pdf_bytes = pdf_gen.generate_report(results, st.session_state.get('team_name', 'Equipo'), visualizer, df_practices)
+                    st.download_button(
+                        label="📄 Descargar PDF",
+                        data=pdf_bytes,
+                        file_name=f"evaluacion_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.error(f"Error al generar PDF: {str(e)}")
     
     # TAB 3: DATOS
     with tab3:
