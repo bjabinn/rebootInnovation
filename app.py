@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from io import BytesIO
 from src.data_loader import DataLoader
 from src.calculator import Calculator
 from src.visualizer import Visualizer
@@ -42,8 +43,12 @@ st.title("Evaluación Reboot - Innovación")
 
 # CSS para el campo de texto con fondo gris
 st.markdown("""
-    <style>
-    /* Estilo para el input de nombre de equipo */
+    <style>    
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        min-width: 545px;
+        max-width: 545px;
+    }
+    /* Estilo para el input de nombre de equipo */            
     div[data-testid="stTextInput"] input {
         background-color: #f0f2f6 !important;
         border: 1px solid #d0d0d0 !important;
@@ -51,8 +56,8 @@ st.markdown("""
     div[data-testid="stTextInput"] input:focus {
         background-color: #e8eaf0 !important;
         border: 1px solid #4f8bf9 !important;
-    }
-    </style>
+    }            
+    </style>            
 """, unsafe_allow_html=True)
 
 # Subtítulo con campo de texto en la misma línea (más compacto)
@@ -81,20 +86,89 @@ def load_data():
 
 # Cargar datos
 try:
-    df_practices = load_data()
+    # Inicializar variables en session_state si no existen
+    if 'df_practices' not in st.session_state:
+        st.session_state['df_practices'] = load_data()
+    
+    df_practices = st.session_state['df_practices']
     
     # Barra lateral
     with st.sidebar:
-        # Espacio para empujar contenido hacia abajo
-        st.markdown("<br>" * 20, unsafe_allow_html=True)
-        
         # Sección de carga de datos al final
-        st.markdown("---")
-        st.subheader("📁 Cargar datos personalizados")
-        uploaded_file = st.file_uploader("Subir CSV", type=['csv'])
-        if uploaded_file is not None:
-            df_practices = pd.read_csv(uploaded_file)
-            st.success("Archivo cargado correctamente")
+        st.subheader("📁 Cargar Datos")
+        
+        # Selector de tipo de archivo
+        data_source = st.radio(
+            "Tipo de archivo:",
+            options=["Excel (.xlsx)", "CSV (.csv)"],
+            key="data_source_type"
+        )
+        
+        if data_source == "Excel (.xlsx)":
+            st.markdown("**📊 Cargar desde Excel**")
+            st.caption("Estructura: Col B (Dimensión), C (Práctica), E (Peso %), F-G-H (Límites)")
+            
+            uploaded_excel = st.file_uploader("Subir archivo Excel", type=['xlsx', 'xls'], key="excel_uploader")
+            
+            if uploaded_excel is not None:
+                try:
+                    # Guardar archivo en session_state
+                    if 'excel_file' not in st.session_state or st.session_state.get('excel_file_name') != uploaded_excel.name:
+                        st.session_state['excel_file'] = BytesIO(uploaded_excel.getvalue())
+                        st.session_state['excel_file_name'] = uploaded_excel.name
+                        st.session_state['excel_sheets'] = None
+                        st.session_state['selected_sheet'] = None
+                    
+                    # Obtener pestañas disponibles
+                    if st.session_state['excel_sheets'] is None:
+                        st.session_state['excel_file'].seek(0)
+                        sheets = DataLoader.get_excel_sheets(st.session_state['excel_file'])
+                        st.session_state['excel_sheets'] = sheets
+                    
+                    # Selector de pestaña
+                    selected_sheet = st.selectbox(
+                        "Selecciona la pestaña:",
+                        options=st.session_state['excel_sheets'],
+                        key="sheet_selector"
+                    )
+                    
+                    # Botón para cargar datos
+                    if st.button("📊 Cargar datos desde Excel", type="primary"):
+                        st.session_state['excel_file'].seek(0)
+                        df_practices = DataLoader.load_from_excel(st.session_state['excel_file'], selected_sheet)
+                        st.session_state['df_practices'] = df_practices
+                        
+                        # Si hay valores evaluados en el Excel, cargarlos en evaluation_values
+                        if 'Valor_Evaluado' in df_practices.columns:
+                            evaluation_values = {}
+                            for _, row in df_practices.iterrows():
+                                # Convertir valor a porcentaje si está en decimal
+                                valor = row['Valor_Evaluado']
+                                if pd.notna(valor):
+                                    if valor <= 1.0:
+                                        valor = valor * 100
+                                    evaluation_values[row['Practica']] = int(valor)
+                            
+                            if evaluation_values:
+                                st.session_state['loaded_values'] = evaluation_values
+                        
+                        st.success(f"✅ Datos cargados correctamente desde la pestaña '{selected_sheet}'")
+                        st.rerun()
+                        
+                except Exception as e:
+                    st.error(f"❌ Error al procesar Excel: {str(e)}")
+        
+        else:  # CSV
+            st.markdown("**📄 Cargar desde CSV**")
+            uploaded_file = st.file_uploader("Subir CSV", type=['csv'])
+            if uploaded_file is not None:
+                try:
+                    df_practices = pd.read_csv(uploaded_file)
+                    st.session_state['df_practices'] = df_practices
+                    st.success("✅ CSV cargado correctamente")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Error al cargar CSV: {str(e)}")
     
     # Tabs principales (con navegación automática)
     # Determinar qué pestaña abrir por defecto
@@ -129,11 +203,16 @@ try:
                         st.markdown(f"**{practice['Practica']}**")
                         st.caption(f"Peso: {practice['Peso']}%")
                         
+                        # Determinar el valor inicial del slider
+                        initial_value = 0
+                        if 'loaded_values' in st.session_state and practice['Practica'] in st.session_state['loaded_values']:
+                            initial_value = st.session_state['loaded_values'][practice['Practica']]
+                        
                         value = st.slider(
                             f"Nivel de cumplimiento",
                             min_value=0,
                             max_value=100,
-                            value=0,
+                            value=initial_value,
                             step=5,
                             key=f"{dimension}_{practice['Practica']}",
                             label_visibility="collapsed"
@@ -310,7 +389,6 @@ try:
                     hide_index=True
                 )
                 
-                # Verificar que los pesos sumen 100
                 total_peso = dim_data['Peso'].sum()
                 if abs(total_peso - 100) < 0.01:
                     st.success(f"✅ Los pesos suman {total_peso:.1f}%")
@@ -321,39 +399,21 @@ try:
         st.subheader("📄 Datos completos")
         st.dataframe(df_practices, use_container_width=True)
         
-        # Información sobre el formato CSV
         st.markdown("---")
-        st.subheader("ℹ️ Formato del CSV")
-        st.markdown("""
-        **Columnas requeridas:**
-        - `Dimension`: Nombre de la dimensión (ej: "Estrategia y Gobernanza")
-        - `Practica`: Nombre de la práctica o tarea
-        - `Peso`: Peso de la práctica dentro de la dimensión (deben sumar 100% por dimensión)
-        - `Limite_Basico`: Valor máximo para considerar nivel Básico
-        - `Limite_Medio`: Valor máximo para considerar nivel Medio
-        - `Limite_Avanzado`: Valor máximo (normalmente 100) para nivel Avanzado
+        st.subheader("ℹ️ Formato de archivos")
         
-        **Ejemplo:**
-        ```
-        Dimension,Practica,Peso,Limite_Basico,Limite_Medio,Limite_Avanzado
-        Estrategia y Gobernanza,Definición de Objetivos,30,30,60,100
-        ```
-        """)
+        col_info1, col_info2 = st.columns(2)
+        
+        with col_info1:
+            st.markdown("**CSV:** Dimension, Practica, Peso, Basico_Max, Medio_Max, Avanzado_Max")
+        
+        with col_info2:
+            st.markdown("**Excel:** Col B (Dimensión), C (Práctica), E (Peso %), F-G-H (Límites). Desde fila 3.")
 
 except FileNotFoundError:
-    st.error("❌ No se encontró el archivo de datos. Por favor, asegúrate de que existe 'data/template_evaluacion.csv'")
-    st.info("Puedes crear el archivo manualmente o usar el botón de la barra lateral para subir tu propio CSV.")
+    st.error("❌ No se encontró el archivo de datos.")
 except Exception as e:
-    st.error(f"❌ Error al cargar los datos: {str(e)}")
-    st.exception(e)
+    st.error(f"❌ Error: {str(e)}")
 
-# Footer
 st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; color: gray; padding: 20px;'>
-        <p>📊 Sistema de Evaluación de Equipos de Desarrollo | Reboot Innovation</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("<div style='text-align: center; color: gray;'><p>📊 Sistema de Evaluación | Reboot Innovation</p></div>", unsafe_allow_html=True)

@@ -23,12 +23,18 @@ class Calculator:
                 contribution = (weight * practice_value) / 100
                 dimension_score += contribution
                 
-                if practice_value <= practice['Limite_Basico']:
+                # Criterio sin solapes:
+                # Básico: 0 <= x < LímiteBasico
+                # Medio: LímiteBasico <= x <= LímiteMedio
+                # Avanzado: LímiteMedio < x <= LímiteAvanzado
+                if practice_value < practice['Limite_Basico']:
                     level = 'Basico'
                 elif practice_value <= practice['Limite_Medio']:
                     level = 'Medio'
-                else:
+                elif practice_value <= practice['Limite_Avanzado']:
                     level = 'Avanzado'
+                else:
+                    level = 'Excelente'
                 
                 detail_practices[practice_name] = {
                     'peso': weight,
