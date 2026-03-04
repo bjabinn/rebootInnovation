@@ -94,81 +94,72 @@ try:
     
     # Barra lateral
     with st.sidebar:
-        # Sección de carga de datos al final
-        st.subheader("📁 Cargar Datos")
+        # Sección de carga de datos
+        st.subheader("📁 Cargar Datos desde Excel")
+        st.caption("Estructura: Col B (Dimensión), C (Práctica), E (Evaluación %), F-G-H (Límites), L (Peso %)")
         
-        # Selector de tipo de archivo
-        data_source = st.radio(
-            "Tipo de archivo:",
-            options=["Excel (.xlsx)", "CSV (.csv)"],
-            key="data_source_type"
-        )
+        uploaded_excel = st.file_uploader("Subir archivo Excel", type=['xlsx', 'xls'], key="excel_uploader")
         
-        if data_source == "Excel (.xlsx)":
-            st.markdown("**📊 Cargar desde Excel**")
-            st.caption("Estructura: Col B (Dimensión), C (Práctica), E (Peso %), F-G-H (Límites)")
-            
-            uploaded_excel = st.file_uploader("Subir archivo Excel", type=['xlsx', 'xls'], key="excel_uploader")
-            
-            if uploaded_excel is not None:
-                try:
-                    # Guardar archivo en session_state
-                    if 'excel_file' not in st.session_state or st.session_state.get('excel_file_name') != uploaded_excel.name:
-                        st.session_state['excel_file'] = BytesIO(uploaded_excel.getvalue())
-                        st.session_state['excel_file_name'] = uploaded_excel.name
-                        st.session_state['excel_sheets'] = None
-                        st.session_state['selected_sheet'] = None
-                    
-                    # Obtener pestañas disponibles
-                    if st.session_state['excel_sheets'] is None:
-                        st.session_state['excel_file'].seek(0)
-                        sheets = DataLoader.get_excel_sheets(st.session_state['excel_file'])
-                        st.session_state['excel_sheets'] = sheets
-                    
-                    # Selector de pestaña
-                    selected_sheet = st.selectbox(
-                        "Selecciona la pestaña:",
-                        options=st.session_state['excel_sheets'],
-                        key="sheet_selector"
-                    )
-                    
-                    # Botón para cargar datos
-                    if st.button("📊 Cargar datos desde Excel", type="primary"):
-                        st.session_state['excel_file'].seek(0)
-                        df_practices = DataLoader.load_from_excel(st.session_state['excel_file'], selected_sheet)
-                        st.session_state['df_practices'] = df_practices
-                        
-                        # Si hay valores evaluados en el Excel, cargarlos en evaluation_values
-                        if 'Valor_Evaluado' in df_practices.columns:
-                            evaluation_values = {}
-                            for _, row in df_practices.iterrows():
-                                # Convertir valor a porcentaje si está en decimal
-                                valor = row['Valor_Evaluado']
-                                if pd.notna(valor):
-                                    if valor <= 1.0:
-                                        valor = valor * 100
-                                    evaluation_values[row['Practica']] = int(valor)
-                            
-                            if evaluation_values:
-                                st.session_state['loaded_values'] = evaluation_values
-                        
-                        st.success(f"✅ Datos cargados correctamente desde la pestaña '{selected_sheet}'")
-                        st.rerun()
-                        
-                except Exception as e:
-                    st.error(f"❌ Error al procesar Excel: {str(e)}")
-        
-        else:  # CSV
-            st.markdown("**📄 Cargar desde CSV**")
-            uploaded_file = st.file_uploader("Subir CSV", type=['csv'])
-            if uploaded_file is not None:
-                try:
-                    df_practices = pd.read_csv(uploaded_file)
+        if uploaded_excel is not None:
+            try:
+                # Guardar archivo en session_state
+                if 'excel_file' not in st.session_state or st.session_state.get('excel_file_name') != uploaded_excel.name:
+                    st.session_state['excel_file'] = BytesIO(uploaded_excel.getvalue())
+                    st.session_state['excel_file_name'] = uploaded_excel.name
+                    st.session_state['excel_sheets'] = None
+                    st.session_state['selected_sheet'] = None
+                
+                # Obtener pestañas disponibles
+                if st.session_state['excel_sheets'] is None:
+                    st.session_state['excel_file'].seek(0)
+                    sheets = DataLoader.get_excel_sheets(st.session_state['excel_file'])
+                    st.session_state['excel_sheets'] = sheets
+                
+                # Selector de pestaña
+                selected_sheet = st.selectbox(
+                    "Selecciona la pestaña:",
+                    options=st.session_state['excel_sheets'],
+                    key="sheet_selector"
+                )
+                
+                # Botón para cargar datos
+                if st.button("📊 Cargar datos desde Excel", type="primary"):
+                    st.session_state['excel_file'].seek(0)
+                    df_practices = DataLoader.load_from_excel(st.session_state['excel_file'], selected_sheet)
                     st.session_state['df_practices'] = df_practices
-                    st.success("✅ CSV cargado correctamente")
+                    
+                    # LOG: Verificar si existe columna Valor_Evaluado
+                    print(f"🔍 LOG: Columnas en df_practices: {df_practices.columns.tolist()}")
+                    
+                    # Si hay valores evaluados en el Excel, cargarlos en evaluation_values
+                    if 'Valor_Evaluado' in df_practices.columns:
+                        print("🔍 LOG: Columna 'Valor_Evaluado' encontrada")
+                        evaluation_values = {}
+                        for _, row in df_practices.iterrows():
+                            # Convertir valor a porcentaje si está en decimal
+                            valor = row['Valor_Evaluado']
+                            if pd.notna(valor):
+                                if valor <= 1.0:
+                                    valor = valor * 100
+                                evaluation_values[row['Practica']] = int(valor)
+                                print(f"🔍 LOG: {row['Practica']} = {int(valor)}%")
+                        
+                        if evaluation_values:
+                            st.session_state['loaded_values'] = evaluation_values
+                            print(f"🔍 LOG: Total valores cargados: {len(evaluation_values)}")
+                            # SOLUCIÓN: Limpiar las keys de los sliders para forzar recreación
+                            for key in list(st.session_state.keys()):
+                                if '_' in key and any(dim in key for dim in df_practices['Dimension'].unique()):
+                                    del st.session_state[key]
+                            print("🔍 LOG: Keys de sliders eliminadas para forzar actualización")
+                    else:
+                        print("⚠️ LOG: Columna 'Valor_Evaluado' NO encontrada")
+                    
+                    st.success(f"✅ Datos cargados correctamente desde la pestaña '{selected_sheet}'")
                     st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Error al cargar CSV: {str(e)}")
+                    
+            except Exception as e:
+                st.error(f"❌ Error al procesar Excel: {str(e)}")
     
     # Tabs principales (con navegación automática)
     # Determinar qué pestaña abrir por defecto
@@ -183,7 +174,6 @@ try:
     # TAB 1: EVALUACIÓN
     with tab1:
         st.header("Evaluación de Prácticas por Dimensión")
-        # st.markdown("Selecciona el nivel de cumplimiento (0-100%) para cada práctica:")
         
         # Crear formulario de evaluación
         evaluation_values = {}
@@ -207,6 +197,9 @@ try:
                         initial_value = 0
                         if 'loaded_values' in st.session_state and practice['Practica'] in st.session_state['loaded_values']:
                             initial_value = st.session_state['loaded_values'][practice['Practica']]
+                            print(f"🔍 LOG Slider: {practice['Practica']} -> inicial={initial_value}")
+                        else:
+                            print(f"⚠️ LOG Slider: {practice['Practica']} -> NO encontrado en loaded_values (usando 0)")
                         
                         value = st.slider(
                             f"Nivel de cumplimiento",
@@ -231,7 +224,7 @@ try:
                 st.markdown("---")
         
         # Botón para calcular
-        if st.button("🔍 Calcular Resultados", type="primary", use_container_width=True):
+        if st.button("🔍 Calcular Resultados", type="primary", width="stretch"):
             # Guardar valores en session_state
             st.session_state['evaluation_values'] = evaluation_values
             st.session_state['show_results'] = True
@@ -342,7 +335,7 @@ try:
             
             st.dataframe(
                 df_summary.style.apply(highlight_level, axis=1),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True
             )
             
@@ -356,7 +349,7 @@ try:
                     data=csv,
                     file_name="resultados_evaluacion.csv",
                     mime="text/csv",
-                    use_container_width=True
+                    width="stretch"
                 )
             
             with col_btn2:
@@ -369,7 +362,7 @@ try:
                         data=pdf_bytes,
                         file_name=f"evaluacion_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                         mime="application/pdf",
-                        use_container_width=True
+                        width="stretch"
                     )
                 except Exception as e:
                     st.error(f"Error al generar PDF: {str(e)}")
@@ -385,7 +378,7 @@ try:
                 dim_data = df_practices[df_practices['Dimension'] == dimension]
                 st.dataframe(
                     dim_data[['Practica', 'Peso', 'Limite_Basico', 'Limite_Medio', 'Limite_Avanzado']],
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True
                 )
                 
@@ -397,7 +390,7 @@ try:
         
         st.markdown("---")
         st.subheader("📄 Datos completos")
-        st.dataframe(df_practices, use_container_width=True)
+        st.dataframe(df_practices, width="stretch")
         
         st.markdown("---")
         st.subheader("ℹ️ Formato de archivos")
