@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from io import BytesIO
+import time
 from src.data_loader import DataLoader
 from src.calculator import Calculator
 from src.visualizer import Visualizer
@@ -60,19 +61,19 @@ st.markdown("""
     </style>            
 """, unsafe_allow_html=True)
 
-# Subtítulo con campo de texto en la misma línea (más compacto)
+# Subtítulo con nombre de equipo (basado en pestaña seleccionada)
 col1, col2, col3 = st.columns([0.5, 2, 1.5])
 with col1:
     st.markdown("### Equipo:")
 with col2:
-    team_name = st.text_input(
-        "Nombre del equipo",
-        placeholder="Introduce el nombre del equipo...",
-        key="team_name_input",
-        label_visibility="collapsed"
-    )
-    if team_name:
+    # Mostrar el nombre de la pestaña seleccionada como nombre del equipo
+    if 'sheet_selector' in st.session_state and st.session_state['sheet_selector']:
+        team_name = st.session_state['sheet_selector']
         st.session_state['team_name'] = team_name
+        st.markdown(f"### {team_name}")  # Color normal
+    else:
+        # Texto en gris cuando no hay datos cargados
+        st.markdown("<h3 style='color: #999999; font-style: italic;'>Sin datos cargados</h3>", unsafe_allow_html=True)
 with col3:
     pass  # Columna vacía para equilibrar
 
@@ -190,18 +191,11 @@ try:
                         print("⚠️ LOG: Columna 'Valor_Evaluado' NO encontrada")
                     
                     st.success(f"✅ Datos cargados correctamente desde la pestaña '{selected_sheet}'")
+                    time.sleep(1.5)  # Mostrar mensaje durante 1.5 segundos antes de recargar
                     st.rerun()
                     
             except Exception as e:
                 st.error(f"❌ Error al procesar Excel: {str(e)}")
-    
-    # Tabs principales (con navegación automática)
-    # Determinar qué pestaña abrir por defecto
-    if 'show_results' in st.session_state and st.session_state['show_results']:
-        default_tab = 1  # Abrir pestaña de Resultados
-        st.session_state['show_results'] = False  # Reset para próxima vez
-    else:
-        default_tab = 0  # Abrir pestaña de Evaluación por defecto
     
     tab1, tab2, tab3 = st.tabs(["📝 Evaluación", "📊 Resultados", "📋 Datos"])
     
@@ -259,12 +253,12 @@ try:
                 st.markdown("---")
         
         # Botón para calcular
-        if st.button("🔍 Calcular Resultados", type="primary", width="stretch"):
-            # Guardar valores en session_state
-            st.session_state['evaluation_values'] = evaluation_values
-            st.session_state['show_results'] = True
-            st.success("✅ Evaluación guardada. Redirigiendo a resultados...")
-            st.rerun()
+        if st.button("🔍 Calcular Resultados", type="primary", use_container_width=True):
+            with st.spinner("⏳ Guardando evaluación..."):
+                # Guardar valores en session_state
+                st.session_state['evaluation_values'] = evaluation_values
+            st.success("✅ Evaluación guardada correctamente")
+            st.info("👉 **Ve a la pestaña 'Resultados' arriba para ver el análisis completo**")
     
     # TAB 2: RESULTADOS
     with tab2:
@@ -273,12 +267,31 @@ try:
         else:
             st.header("Resultados de la Evaluación")
             
-            # Crear calculadora
-            calculator = Calculator(df_practices, st.session_state['evaluation_values'])
-            results = calculator.calculate_all()
+            # Crear calculadora y visualizer con spinner
+            with st.spinner("⏳ Calculando resultados y generando gráficos..."):
+                calculator = Calculator(df_practices, st.session_state['evaluation_values'])
+                results = calculator.calculate_all()
+                visualizer = Visualizer()
             
-            # Mostrar resumen en métricas
-            st.subheader("📈 Resumen por Dimensión")
+            # Mostrar resumen en métricas con botón de PDF
+            col_title, col_pdf = st.columns([3, 1])
+            with col_title:
+                st.subheader("📈 Resumen por Dimensión")
+            with col_pdf:
+                # Botón de PDF en la parte superior
+                try:
+                    pdf_gen = PDFGenerator()
+                    pdf_bytes = pdf_gen.generate_report(results, st.session_state.get('team_name', 'Equipo'), visualizer, df_practices)
+                    st.download_button(
+                        label="🖨️ Descargar PDF",
+                        data=pdf_bytes,
+                        file_name=f"evaluacion_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                        mime="application/pdf",
+                        type="primary",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.error(f"Error PDF: {str(e)}")
             
             cols = st.columns(len(results['dimensions']))
             for idx, (dim, score) in enumerate(results['dimensions'].items()):
@@ -374,33 +387,15 @@ try:
                 hide_index=True
             )
             
-            # Botones de descarga
-            col_btn1, col_btn2 = st.columns(2)
-            
-            with col_btn1:
-                csv = df_summary.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Descargar Resultados (CSV)",
-                    data=csv,
-                    file_name="resultados_evaluacion.csv",
-                    mime="text/csv",
-                    width="stretch"
-                )
-            
-            with col_btn2:
-                # Generar y descargar PDF
-                try:
-                    pdf_gen = PDFGenerator()
-                    pdf_bytes = pdf_gen.generate_report(results, st.session_state.get('team_name', 'Equipo'), visualizer, df_practices)
-                    st.download_button(
-                        label="📄 Descargar PDF",
-                        data=pdf_bytes,
-                        file_name=f"evaluacion_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                        mime="application/pdf",
-                        width="stretch"
-                    )
-                except Exception as e:
-                    st.error(f"Error al generar PDF: {str(e)}")
+            # Botón de descarga CSV
+            csv = df_summary.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Descargar Tabla Resumen (CSV)",
+                data=csv,
+                file_name="resultados_evaluacion.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
     
     # TAB 3: DATOS
     with tab3:

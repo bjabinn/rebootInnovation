@@ -104,11 +104,11 @@ class MatplotlibVisualizer:
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(dimensions, size=10)
         
-        # Configurar límites y grid
+        # Configurar límites y grid (grid más visible)
         ax.set_ylim(0, 100)
         ax.set_yticks([0, 20, 40, 60, 80, 100])
         ax.set_yticklabels(['0', '20', '40', '60', '80', '100'], size=8)
-        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.grid(True, linestyle='-', alpha=0.7, color='#666666', linewidth=0.8)
         
         # Título
         plt.title('Evaluación Global', size=16, pad=20, weight='bold')
@@ -156,15 +156,15 @@ class MatplotlibVisualizer:
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(labels_short, size=8)
         
-        # Configurar límites y grid
+        # Configurar límites y grid (grid más visible)
         ax.set_ylim(0, 100)
         ax.set_yticks([0, 25, 50, 75, 100])
         ax.set_yticklabels(['0', '25', '50', '75', '100'], size=7)
-        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.grid(True, linestyle='-', alpha=0.7, color='#666666', linewidth=0.8)
         
-        # Título con puntuación y nivel
+        # Título con puntuación y nivel (más grande)
         plt.title(f'{dimension}\n{dimension_score:.1f}% - {level}', 
-                 size=12, pad=15, weight='bold', color=color_hex)
+                 size=15, pad=15, weight='bold', color=color_hex)
         
         plt.tight_layout()
         
