@@ -155,12 +155,37 @@ try:
                         
                         if evaluation_values:
                             st.session_state['loaded_values'] = evaluation_values
-                            print(f"🔍 LOG: Total valores cargados: {len(evaluation_values)}")
-                            # SOLUCIÓN: Limpiar las keys de los sliders para forzar recreación
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 LOG: Total valores cargados: {len(evaluation_values)}")
+                            
+                            # SOLUCIÓN MEJORADA: Limpiar keys de sliders de forma selectiva
+                            keys_to_delete = []
+                            dimensions = df_practices['Dimension'].unique().tolist()
+                            
+                            # Lista de keys a excluir de la eliminación
+                            protected_keys = {
+                                'excel_file', 'excel_file_name', 'excel_sheets', 
+                                'selected_sheet', 'df_practices', 'loaded_values',
+                                'team_name', 'team_name_input', 'excel_uploader', 'sheet_selector'
+                            }
+                            
                             for key in list(st.session_state.keys()):
-                                if '_' in key and any(dim in key for dim in df_practices['Dimension'].unique()):
+                                # Solo eliminar keys que:
+                                # 1. Contengan el nombre de una dimensión (keys de sliders)
+                                # 2. O sean keys de evaluación
+                                # 3. Y NO sean keys protegidas
+                                if key not in protected_keys:
+                                    if (any(dim in key for dim in dimensions) or 
+                                        key.startswith('evaluation') or 
+                                        key == 'show_results'):
+                                        keys_to_delete.append(key)
+                            
+                            for key in keys_to_delete:
+                                if key in st.session_state:
                                     del st.session_state[key]
-                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 LOG: Keys de sliders eliminadas para forzar actualización")
+                            
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🧹 LOG: {len(keys_to_delete)} keys de sliders eliminadas")
+                            if keys_to_delete:
+                                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔑 Ejemplos: {keys_to_delete[:5]}")
                     else:
                         print("⚠️ LOG: Columna 'Valor_Evaluado' NO encontrada")
                     
