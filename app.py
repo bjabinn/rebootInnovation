@@ -157,22 +157,24 @@ try:
                             st.session_state['loaded_values'] = evaluation_values
                             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 LOG: Total valores cargados: {len(evaluation_values)}")
                             
-                            # SOLUCIÓN MEJORADA: Limpiar keys de sliders de forma selectiva
+                            # SOLUCIÓN DEFINITIVA: Incrementar versión de datos para forzar recreación de sliders con keys nuevas
+                            if 'data_version' not in st.session_state:
+                                st.session_state['data_version'] = 0
+                            st.session_state['data_version'] += 1
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔄 Versión de datos incrementada a: {st.session_state['data_version']}")
+                            
+                            # Limpiar keys de sliders y evaluación anteriores
                             keys_to_delete = []
                             dimensions = df_practices['Dimension'].unique().tolist()
                             
-                            # Lista de keys a excluir de la eliminación
                             protected_keys = {
                                 'excel_file', 'excel_file_name', 'excel_sheets', 
                                 'selected_sheet', 'df_practices', 'loaded_values',
-                                'team_name', 'team_name_input', 'excel_uploader', 'sheet_selector'
+                                'team_name', 'team_name_input', 'excel_uploader', 'sheet_selector',
+                                'data_version'
                             }
                             
                             for key in list(st.session_state.keys()):
-                                # Solo eliminar keys que:
-                                # 1. Contengan el nombre de una dimensión (keys de sliders)
-                                # 2. O sean keys de evaluación
-                                # 3. Y NO sean keys protegidas
                                 if key not in protected_keys:
                                     if (any(dim in key for dim in dimensions) or 
                                         key.startswith('evaluation') or 
@@ -183,9 +185,7 @@ try:
                                 if key in st.session_state:
                                     del st.session_state[key]
                             
-                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🧹 LOG: {len(keys_to_delete)} keys de sliders eliminadas")
-                            if keys_to_delete:
-                                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔑 Ejemplos: {keys_to_delete[:5]}")
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🧹 LOG: {len(keys_to_delete)} keys antiguas eliminadas")
                     else:
                         print("⚠️ LOG: Columna 'Valor_Evaluado' NO encontrada")
                     
@@ -234,13 +234,15 @@ try:
                             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 LOG Slider: {practice['Practica']} -> inicial={initial_value}")
                         # No loguear cuando no hay valor (reduce ruido en logs)
                         
+                        # Usar data_version en la key para forzar recreación de widgets
+                        data_ver = st.session_state.get('data_version', 0)
                         value = st.slider(
                             f"Nivel de cumplimiento",
                             min_value=0,
                             max_value=100,
                             value=initial_value,
                             step=5,
-                            key=f"{dimension}_{practice['Practica']}",
+                            key=f"{dimension}_{practice['Practica']}_v{data_ver}",
                             label_visibility="collapsed"
                         )
                         evaluation_values[practice['Practica']] = value
