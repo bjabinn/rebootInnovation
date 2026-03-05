@@ -124,12 +124,21 @@ try:
                 
                 # Botón para cargar datos
                 if st.button("📊 Cargar datos desde Excel", type="primary"):
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔵 BOTÓN PULSADO: Cargar datos desde Excel")
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 📄 Pestaña seleccionada: {selected_sheet}")
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 📂 Nombre archivo: {st.session_state.get('excel_file_name', 'N/A')}")
+                    
                     st.session_state['excel_file'].seek(0)
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔄 Iniciando carga desde Excel...")
+                    
                     df_practices = DataLoader.load_from_excel(st.session_state['excel_file'], selected_sheet)
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✅ Excel cargado: {len(df_practices)} filas, {len(df_practices.columns)} columnas")
+                    
                     st.session_state['df_practices'] = df_practices
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 💾 Datos guardados en session_state")
                     
                     # LOG: Verificar si existe columna Valor_Evaluado
-                    print(f"🔍 LOG: Columnas en df_practices: {df_practices.columns.tolist()}")
+                    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 Columnas en df_practices: {df_practices.columns.tolist()}")
                     
                     # Si hay valores evaluados en el Excel, cargarlos en evaluation_values
                     if 'Valor_Evaluado' in df_practices.columns:
