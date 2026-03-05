@@ -253,7 +253,7 @@ try:
                 st.markdown("---")
         
         # Botón para calcular
-        if st.button("🔍 Calcular Resultados", type="primary", use_container_width=True):
+        if st.button("🔍 Calcular Resultados", type="primary", width='stretch'):
             with st.spinner("⏳ Guardando evaluación..."):
                 # Guardar valores en session_state
                 st.session_state['evaluation_values'] = evaluation_values
@@ -288,7 +288,7 @@ try:
                         file_name=f"evaluacion_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                         mime="application/pdf",
                         type="primary",
-                        use_container_width=True
+                        width='stretch'
                     )
                 except Exception as e:
                     st.error(f"Error PDF: {str(e)}")
@@ -313,7 +313,7 @@ try:
             with col1:
                 st.subheader("🌍 Vista Global")
                 fig_global = visualizer.create_global_chart(results)
-                st.plotly_chart(fig_global, use_container_width=True)
+                st.plotly_chart(fig_global, width='stretch')
             
             with col2:
                 st.subheader("📊 Puntuación Global")
@@ -351,7 +351,7 @@ try:
                 with dim_cols[col_idx]:
                     with st.container():
                         fig_dim = visualizer.create_dimension_chart(results, dimension)
-                        st.plotly_chart(fig_dim, use_container_width=True)
+                        st.plotly_chart(fig_dim, width='stretch')
             
             # Tabla resumen
             st.markdown("---")
@@ -394,7 +394,7 @@ try:
                 data=csv,
                 file_name="resultados_evaluacion.csv",
                 mime="text/csv",
-                use_container_width=True
+                width='stretch'
             )
     
     # TAB 3: DATOS
