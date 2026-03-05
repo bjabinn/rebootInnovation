@@ -207,8 +207,7 @@ try:
                         if 'loaded_values' in st.session_state and practice['Practica'] in st.session_state['loaded_values']:
                             initial_value = st.session_state['loaded_values'][practice['Practica']]
                             print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 LOG Slider: {practice['Practica']} -> inicial={initial_value}")
-                        else:
-                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⚠️ LOG Slider: {practice['Practica']} -> NO encontrado en loaded_values (usando 0)")
+                        # No loguear cuando no hay valor (reduce ruido en logs)
                         
                         value = st.slider(
                             f"Nivel de cumplimiento",
