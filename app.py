@@ -151,7 +151,7 @@ try:
                             for key in list(st.session_state.keys()):
                                 if '_' in key and any(dim in key for dim in df_practices['Dimension'].unique()):
                                     del st.session_state[key]
-                            print("🔍 LOG: Keys de sliders eliminadas para forzar actualización")
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 LOG: Keys de sliders eliminadas para forzar actualización")
                     else:
                         print("⚠️ LOG: Columna 'Valor_Evaluado' NO encontrada")
                     
@@ -183,7 +183,7 @@ try:
         
         for dimension in dimensions:
             # Un único expander por dimensión (colapsado por defecto)
-            with st.expander(f"### **{dimension}**", expanded=False):
+            with st.expander(f"**{dimension}**", expanded=False):
                 practices_dim = df_practices[df_practices['Dimension'] == dimension]
                 
                 cols = st.columns(2)
@@ -197,9 +197,9 @@ try:
                         initial_value = 0
                         if 'loaded_values' in st.session_state and practice['Practica'] in st.session_state['loaded_values']:
                             initial_value = st.session_state['loaded_values'][practice['Practica']]
-                            print(f"🔍 LOG Slider: {practice['Practica']} -> inicial={initial_value}")
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 🔍 LOG Slider: {practice['Practica']} -> inicial={initial_value}")
                         else:
-                            print(f"⚠️ LOG Slider: {practice['Practica']} -> NO encontrado en loaded_values (usando 0)")
+                            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ⚠️ LOG Slider: {practice['Practica']} -> NO encontrado en loaded_values (usando 0)")
                         
                         value = st.slider(
                             f"Nivel de cumplimiento",
