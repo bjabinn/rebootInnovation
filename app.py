@@ -383,32 +383,30 @@ try:
                 st.markdown("---")
                 st.subheader("📋 Tabla Resumen Detallada")
                 
-                # Crear DataFrame de resultados
+                # Crear DataFrame de resultados con formato
                 summary_data = []
                 for dim, dim_result in results['detail'].items():
                     for practice, practice_data in dim_result.items():
                         summary_data.append({
                             'Dimensión': dim,
                             'Práctica': practice,
-                            'Peso (%)': practice_data['peso'],
-                            'Valor Evaluado (%)': practice_data['valor_evaluado'],
-                            'Contribución (%)': practice_data['contribucion'],
-                            'Nivel': practice_data['nivel']
+                            'Peso (%)': f"{practice_data['peso']:.2f}",
+                            'Valor Evaluado (%)': f"{practice_data['valor_evaluado']:.0f}",
+                            'Contribución (%)': f"{practice_data['contribucion']:.2f}"
                         })
                 
                 df_summary = pd.DataFrame(summary_data)
                 
-                # Aplicar colores según nivel
-                def highlight_level(row):
-                    if row['Nivel'] == 'Basico':
-                        return ['background-color: #ffebee'] * len(row)
-                    elif row['Nivel'] == 'Medio':
-                        return ['background-color: #fff9c4'] * len(row)
-                    else:
-                        return ['background-color: #e8f5e9'] * len(row)
+                # Aplicar estilos: centrar columnas numéricas con CSS
+                styled_df = df_summary.style.set_properties(**{
+                    'text-align': 'center'
+                }, subset=['Peso (%)', 'Valor Evaluado (%)', 'Contribución (%)'])\
+                .set_table_styles([
+                    {'selector': 'th.col1, th.col2, th.col3', 'props': [('text-align', 'center')]}
+                ])
                 
                 st.dataframe(
-                    df_summary.style.apply(highlight_level, axis=1),
+                    styled_df,
                     width="stretch",
                     hide_index=True
                 )
