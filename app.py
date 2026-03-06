@@ -339,7 +339,7 @@ try:
                 with col1:
                     st.subheader("🌍 Vista Global")
                     fig_global = visualizer.create_global_chart(results)
-                    st.plotly_chart(fig_global, width='stretch')
+                    st.plotly_chart(fig_global, use_container_width=True)
                 
                 with col2:
                     st.subheader("📊 Puntuación Global")
@@ -377,7 +377,7 @@ try:
                     with dim_cols[col_idx]:
                         with st.container():
                             fig_dim = visualizer.create_dimension_chart(results, dimension)
-                            st.plotly_chart(fig_dim, width='stretch')
+                            st.plotly_chart(fig_dim, use_container_width=True)
                 
                 # Tabla resumen
                 st.markdown("---")
